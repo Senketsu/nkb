@@ -11,39 +11,30 @@ Check [keybinder on GitHub](https://github.com/engla/keybinder).
 
 ### Usage:
 ------------------------
-** Procedures and description: (If you aren't already familiar with [keybinder](https://github.com/engla/keybinder) )**
-
-* nkb_init()
-
+`nkb_init()`  
   Initializes the nkb library , **MUST be called before any other library calls**.
 
-
-* nkb_set_multi_call (bool)  
-
+`nkb_set_multi_call (bool)`  
   Whether to allow registering multiple callbacks on the same key combination  
   When false, only first registered callback will be called  
   Default: ON  
 
-* nkb_use_cooked (bool)  
-
+`nkb_use_cooked (bool)`  
   Set wether to use cooked accelerators.  
   Default: OFF  
 
-* nkb_bind(keystring: cstring, handler: PKeybindHandle, user_data: pointer, uID: cuint):  
-
-  Proc to bind a function to a hotkey.  
+`nkb_bind(keystring: cstring, handler: PKeybindHandle, user_data: pointer, uID: cuint): bool`  
+  Procedure to register a procedure to a hotkey.  
   **Keystring** must valid gtk accel string e.g `<CTRL>i`  
   **Handler** is a proc pointer of PKeybindHandle type (keystring: cstring, data: pointer)  
   **User_data** will be supplied to handler. Can be nil.  
   **uID** is unique identifier for this hotkey (used only on Windows). Can be ommited. Will be generated if not specified.  
   Returns *bool* value of true if bind was successful.
 
-* nkb_unbind(keystring: cstring, handle: PKeybindHandle)  
-
+`nkb_unbind(keystring: cstring, handle: PKeybindHandle)`  
   Self descriptive.
 
-* nkb_unbind_all()  
-
+`nkb_unbind_all()`  
   Unbinds all keybinds.  
 
 ### Requirements
