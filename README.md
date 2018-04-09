@@ -2,31 +2,35 @@
 This library was made for [Pomf It !](https://github.com/Senketsu/pomfit)
 
 ## About:
-Basically Nim version of keybinder library for C with added Windows support.*
+Basically Nim version of keybinder library for C with added Windows support.*  
 ***On Windows** it uses the win32 api to register keybinds but saves you from the hasle of using win32 api at all if you choose so.  
 (e.g: your application uses GTK exclusively)
 
 Huge credits go to original developers of keybinder.  
 Check [keybinder on GitHub](https://github.com/engla/keybinder).
 
-This library depends on `gtk2` & `x11` (linux) / `oldwinapi` (windows) packages from the official Nimble repository.
-
-
 ### Usage:
 ------------------------
 ** Procedures and description: (If you aren't already familiar with [keybinder](https://github.com/engla/keybinder) )**
+
 * nkb_init()
 
   Initializes the nkb library , **MUST be called before any other library calls**.
 
+
 * nkb_set_multi_call (bool)  
+
   Whether to allow registering multiple callbacks on the same key combination  
   When false, only first registered callback will be called  
   Default: ON  
+
 * nkb_use_cooked (bool)  
+
   Set wether to use cooked accelerators.  
   Default: OFF  
+
 * nkb_bind(keystring: cstring, handler: PKeybindHandle, user_data: pointer, uID: cuint):  
+
   Proc to bind a function to a hotkey.  
   **Keystring** must valid gtk accel string e.g `<CTRL>i`  
   **Handler** is a proc pointer of PKeybindHandle type (keystring: cstring, data: pointer)  
@@ -35,16 +39,17 @@ This library depends on `gtk2` & `x11` (linux) / `oldwinapi` (windows) packages 
   Returns *bool* value of true if bind was successful.
 
 * nkb_unbind(keystring: cstring, handle: PKeybindHandle)  
+
   Self descriptive.
+
 * nkb_unbind_all()  
+
   Unbinds all keybinds.  
 
 ### Requirements
 ------------------------
-This library depends on `gtk2` & `x11` (linux) / `oldwinapi` (windows) packages from the official Nimble repository.
-
-This library depends on `gtk2` & `x11` for linux / `oldwinapi` (for windows) 
-  from the official [Nimble](https://github.com/nim-lang/nimble) repository.
+This library depends on `gtk2` & `x11` for linux / `oldwinapi` for windows  
+packages from the official [Nimble](https://github.com/nim-lang/nimble) repository.
 
 ### Contact
 * Feedback , thoughts , bug reports ?

@@ -1,4 +1,7 @@
-import rlocks, strutils
+const hasThreadSupport = compileOption("threads")
+import strutils
+when defined(hasThreadSupport):
+  import rlocks
 
 when defined(Windows):
   import oldwinapi
@@ -47,20 +50,31 @@ else:
     detected_xkb_extension: bool = false
     lastEventTime: culong = 0
 
-var
-  nkbLock: RLock
-  allBinds {.guard: nkbLock, threadvar.}: seq[TKeyLibBinding]
-  allowMultipleCBs: bool = true
+when defined(hasThreadSupport):
+  var
+    nkbLock: RLock
+    allBinds {.guard: nkbLock, threadvar.}: seq[TKeyLibBinding]
+    allowMultipleCBs: bool = true
+  
+else:
+  var
+    allBinds: seq[TKeyLibBinding]
+    allowMultipleCBs: bool = true
+    
 
 
-proc nkb_quit*() =
-  deinitRLock(nkbLock)
 
 when defined(Windows):
   proc nkb_wnd_proc(hWnd: HWND, uMsg: WINUINT, wParam: WPARAM, lParam: LPARAM): LRESULT {.stdcall.} =
     case uMsg
     of WM_HOTKEY:
-      nkbLock.withRLock:
+      when defined(hasThreadSupport):
+        nkbLock.withRLock:
+          for keyBind in allBinds:
+            if keyBind.uID == cuit(wParam):
+              keyBind.handler(keyBind.keystring, keyBind.userData)
+              break
+      else:
         for keyBind in allBinds:
           if keyBind.uID == cuit(wParam):
             keyBind.handler(keyBind.keystring, keyBind.userData)
@@ -260,13 +274,21 @@ else:
       modifiers = modifiers and modMask
       isProcessingEvent = true
       lastEventTime = xKeyEvent.time
-
-      nkbLock.withRLock:
+      
+      when defined(hasThreadSupport):
+        nkbLock.withRLock:
+          for i in 0..allBinds.high:
+            if allBinds[i].keyval == keyval and nkb_modifiers_equal(allBinds[i].modifiers, modifiers):
+              allBinds[i].handler(allBinds[i].keystring, allBinds[i].user_data)
+              if not allowMultipleCBs:
+                break
+      else:
         for i in 0..allBinds.high:
           if allBinds[i].keyval == keyval and nkb_modifiers_equal(allBinds[i].modifiers, modifiers):
             allBinds[i].handler(allBinds[i].keystring, allBinds[i].user_data)
             if not allowMultipleCBs:
               break
+
       isProcessingEvent = false
     of x.KeyRelease:
       discard
@@ -274,20 +296,32 @@ else:
       discard
     result = FILTER_CONTINUE
 
-
+when defined(hasThreadSupport):
+  proc nkb_deinit_lock*() =
+    deinitRLock(nkbLock)
+  
   proc nkb_keymap_changed(map: PKeyMap) =
     nkbLock.withRLock:
       for i in 0..allBinds.high:
         discard nkb_ungrab_key(addr allBinds[i])
       for i in 0..allBinds.high:
         discard nkb_grab_key(addr allBinds[i])
-
+else:
+  proc nkb_keymap_changed(map: PKeyMap) =
+    for i in 0..allBinds.high:
+      discard nkb_ungrab_key(addr allBinds[i])
+    for i in 0..allBinds.high:
+      discard nkb_grab_key(addr allBinds[i])
 
 
 proc nkb_init*() =
-  initRLock(nkbLock)
-  nkbLock.withRLock:
+  when defined(hasThreadSupport):
+    initRLock(nkbLock)
+    nkbLock.withRLock:
+      allBinds = @[]
+  else:
     allBinds = @[]
+  
   when defined(Windows):
     nkbWindow = nkb_init_windows()
   else:
@@ -352,24 +386,45 @@ proc nkb_bind*(keystring: cstring, handler: PKeybindHandle,
   else:
     result = nkb_grab_key(addr binding)
   if result:
-    nkbLock.withRLock:
+    when defined(hasThreadSupport):
+      nkbLock.withRLock:
+        allBinds.add(binding)
+    else:
       allBinds.add(binding)
   else:
     stderr.writeLine("[nkb] Keybind '$1' already in use" % [$binding.keystring])
 
+when defined(hasThreadSupport):
+  proc nkb_unbind_all*() =
+    nkbLock.withRLock:
+      for i in 0..allBinds.high:
+        when defined(Windows):
+          discard UnRegisterHotKey(nkbWindow, allBinds[i].uid)
+        else:
+          discard nkb_ungrab_key(addr allBinds[i])
+        allBinds.del(i)
 
-proc nkb_unbind_all*() =
-  nkbLock.withRLock:
+
+  proc nkb_unbind*(keystring: cstring, handler: PKeybindHandle) =
+    nkbLock.withRLock:
+      for i in 0..allBinds.high:
+        if keystring == allBinds[i].keystring and handler == allBinds[i].handler:
+          when defined(Windows):
+            discard UnRegisterHotKey(nkbWindow, allBinds[i].uid)
+          else:
+            discard nkb_ungrab_key(addr allBinds[i])
+          allBinds.del(i)
+else:
+  proc nkb_unbind_all*() =
     for i in 0..allBinds.high:
       when defined(Windows):
         discard UnRegisterHotKey(nkbWindow, allBinds[i].uid)
       else:
         discard nkb_ungrab_key(addr allBinds[i])
       allBinds.del(i)
-
-
-proc nkb_unbind*(keystring: cstring, handler: PKeybindHandle) =
-  nkbLock.withRLock:
+  
+  
+  proc nkb_unbind*(keystring: cstring, handler: PKeybindHandle) =
     for i in 0..allBinds.high:
       if keystring == allBinds[i].keystring and handler == allBinds[i].handler:
         when defined(Windows):
