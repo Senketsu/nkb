@@ -11,6 +11,8 @@ Check [keybinder on GitHub](https://github.com/engla/keybinder).
 
 ### Usage:
 ------------------------
+Use compiler option -d:threads along with --threads:on.
+(as of now, I'm not aware of way to detect the --threads option)  
 `nkb_init()`  
   Initializes the nkb library , **MUST be called before any other library calls**.
 
@@ -19,7 +21,7 @@ Check [keybinder on GitHub](https://github.com/engla/keybinder).
   When false, only first registered callback will be called  
   Default: ON  
 
-`nkb_use_cooked (bool)`  
+`nkb_set_use_cooked (bool)`  
   Set wether to use cooked accelerators.  
   Default: OFF  
 
