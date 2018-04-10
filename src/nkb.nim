@@ -300,14 +300,14 @@ when defined(Threads):
   proc nkb_deinit_lock*() =
     deinitRLock(nkbLock)
   
-  proc nkb_keymap_changed(map: PKeyMap) =
+  proc nkb_keymap_changed() =
     nkbLock.withRLock:
       for i in 0..allBinds.high:
         discard nkb_ungrab_key(addr allBinds[i])
       for i in 0..allBinds.high:
         discard nkb_grab_key(addr allBinds[i])
 else:
-  proc nkb_keymap_changed(map: PKeyMap) =
+  proc nkb_keymap_changed() =
     for i in 0..allBinds.high:
       discard nkb_ungrab_key(addr allBinds[i])
     for i in 0..allBinds.high:
@@ -332,8 +332,8 @@ proc nkb_init*() =
 
     detected_xkb_extension = XkbQueryExtension(XOpenDisplay(nil),
       addr opcode, addr eventBase, addr errorBase, addr majVer, addr minVer)
-
-    discard rootWin.window_add_filter(TFILTER_CALLBACK(nkb_filter_proc), nil)
+    discard keymap.keymap_have_bidi_layouts()
+    rootWin.add_filter(TFILTER_CALLBACK(nkb_filter_proc), nil)
     discard keymap.g_signal_connect("keys_changed", G_CALLBACK(nkb_keymap_changed), nil)
 
 
