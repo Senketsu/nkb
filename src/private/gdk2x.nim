@@ -15,35 +15,10 @@ else:
   const
     lib = "libgdk-x11-2.0.so(|.0)"
 
-proc is_destroyed*(window: gdk2.PWindow): gboolean {.cdecl, dynlib: lib,
-    importc: "window_is_destroyed".}
-
-const
- PARENT_RELATIVE_BG* = (cast[gdk2.PPixmap](1))
- NO_BG* = (cast[gdk2.PPixmap](2))
-
-when not defined(COMPILATION):
-  template WINDOW_TYPE*(d: expr): expr =
-    (get_window_type(WINDOW(d)))
-
-  template WINDOW_DESTROYED*(d: expr): expr =
-    (is_destroyed(WINDOW(d)))
-
-proc destroy_notify*(window: gdk2.PWindow) {.cdecl,
-    dynlib: lib, importc: "window_destroy_notify".}
-proc synthesize_window_state*(window: gdk2.PWindow, unset_flags: gdk2.PWindowState,
-  set_flags: gdk2.PWindowState) {.cdecl, dynlib: lib, importc: "synthesize_window_state".}
-
-template UNITS_OVERFLOWS*(x, y: expr): expr =
-  (G_UNLIKELY((y) >= PIXELS(G_MAXINT - SCALE) div 2 or
-      (x) >= PIXELS(G_MAXINT - SCALE) div 2 or
-      (y) <= - (PIXELS(G_MAXINT - SCALE) div 2) or
-      (x) <= - (PIXELS(G_MAXINT - SCALE) div 2)))
-
-
 when (not defined(DISABLE_DEPRECATED) and not defined(MULTIHEAD_SAFE)) or
     defined(COMPILATION):
   var display*: gdk2.PDisplay
+
 
 proc x11_drawable_get_xdisplay*(drawable: gdk2.PDrawable): xlib.PDisplay  {.cdecl,
  dynlib: lib, importc: "gdk_x11_drawable_get_xdisplay".}
@@ -69,13 +44,11 @@ proc x11_display_get_xdisplay*(display: gdk2.PDisplay): xlib.PDisplay {.cdecl,
  dynlib: lib, importc: "gdk_x11_display_get_xdisplay".}
 proc x11_visual_get_xvisual*(visual: gdk2.PVisual): xlib.PVisual {.cdecl,
  dynlib: lib, importc: "gdk_x11_visual_get_xvisual".}
-
 when not defined(DISABLE_DEPRECATED) or defined(COMPILATION):
-  proc x11_gc_get_xdisplay*(gc: gdk2.PGC): gdk2.PDisplay {.cdecl,
+  proc x11_gc_get_xdisplay*(gc: gdk2.PGC): xlib.PDisplay {.cdecl,
     dynlib: lib, importc: "gdk_x11_gc_get_xdisplay".}
   proc x11_gc_get_xgc*(gc: gdk2.PGC): xlib.PGC {.cdecl,
     dynlib: lib, importc: "gdk_x11_gc_get_xgc".}
-
 proc x11_screen_get_xscreen*(screen: gdk2.PScreen): xlib.PScreen {.cdecl,
     dynlib: lib, importc: "gdk_x11_screen_get_xscreen".}
 proc x11_screen_get_screen_number*(screen: gdk2.PScreen): cint {.cdecl,
@@ -89,7 +62,7 @@ proc x11_screen_get_window_manager_name*(screen: gdk2.PScreen): cstring {.cdecl,
 
 when not defined(MULTIHEAD_SAFE):
   proc x11_get_default_root_xwindow*(): x.PWindow {.cdecl,
-    dynlib: lib, importc: "gdk_".}
+    dynlib: lib, importc: "gdk_x11_get_default_root_xwindow".}
   proc x11_get_default_xdisplay*(): xlib.PDisplay {.cdecl,
     dynlib: lib, importc: "gdk_x11_get_default_xdisplay".}
   proc x11_get_default_screen*(): gint {.cdecl,
@@ -112,6 +85,42 @@ when (not defined(DISABLE_DEPRECATED) and not defined(MULTIHEAD_SAFE)) or
     defined(COMPILATION):
   proc DISPLAY*(): gdk2.PDisplay =
     result = gdk2x.display
+
+
+when not defined(COMPILATION):
+  when not defined(MULTIHEAD_SAFE):
+    proc ROOT_WINDOW*(): x.PWindow =
+      result = x11_get_default_root_xwindow()
+
+  proc DISPLAY_XDISPLAY*(display: gdk2.PDisplay): xlib.PDisplay =
+    result = x11_display_get_xdisplay(display)
+  proc WINDOW_XDISPLAY*(win: gdk2.PWindow): xlib.PDisplay  =
+    result = x11_drawable_get_xdisplay(x11_window_get_drawable_impl(win))
+  proc WINDOW_XID*(win: gdk2.PWindow): TXID =
+    result = x11_drawable_get_xid(win)
+  proc WINDOW_XWINDOW*(win: gdk2.PWindow): TXID =
+    result = x11_drawable_get_xid(win)
+  proc PIXMAP_XDISPLAY*(win: gdk2.PPixmap): xlib.PDisplay =
+    result = x11_drawable_get_xdisplay(x11_pixmap_get_drawable_impl(win))
+  proc PIXMAP_XID*(win: gdk2.PDrawable): TXID =
+    result = x11_drawable_get_xid(win)
+  proc DRAWABLE_XDISPLAY*(win: gdk2.PDrawable): xlib.PDisplay =
+    result = x11_drawable_get_xdisplay(win)
+  proc DRAWABLE_XID*(win: gdk2.PDrawable): TXID =
+    result = x11_drawable_get_xid(win)
+  proc GC_XDISPLAY*(gc: gdk2.PGC): xlib.PDisplay =
+    result = x11_gc_get_xdisplay(gc)
+  proc GC_XGC*(gc: gdk2.PGC): xlib.PGC =
+    result = x11_gc_get_xgc(gc)
+  proc SCREEN_XDISPLAY*(screen: gdk2.PScreen): xlib.PDisplay =
+    result = x11_display_get_xdisplay(gdk2.get_display(screen))
+  proc SCREEN_XSCREEN*(screen: gdk2.PScreen): xlib.PScreen =
+    result = x11_screen_get_xscreen(screen)
+  proc SCREEN_XNUMBER*(screen: gdk2.PScreen): cint =
+    result = x11_screen_get_screen_number(screen)
+  proc VISUAL_XVISUAL*(visual: gdk2.PVisual): xlib.PVisual =
+    result = x11_visual_get_xvisual(visual)
+  
 
 proc x11_screen_lookup_visual*(screen: gdk2.PScreen,
    xvisualid: x.PVisualID): gdk2.PVisual {.cdecl,
@@ -143,7 +152,7 @@ proc x11_display_set_cursor_theme*(display: gdk2.PDisplay, theme: PPgchar, size:
     dynlib: lib, importc: "gdk_x11_display_set_cursor_theme".}
 proc x11_display_broadcast_startup_message*(display: gdk2.PDisplay,
     message_type: cstring) {.cdecl, varargs,
-      dynlib: lib, importc: "gdk_x11_display_broadcast_startup_message".}
+    dynlib: lib, importc: "gdk_x11_display_broadcast_startup_message".}
 proc x11_screen_supports_net_wm_hint*(screen: gdk2.PScreen, property: gdk2.PAtom): gboolean {.cdecl,
     dynlib: lib, importc: "gdk_x11_screen_supports_net_wm_hint".}
 proc x11_screen_get_monitor_output*(screen: gdk2.PScreen; monitor_num: gint): PXID {.cdecl,
@@ -238,32 +247,5 @@ proc x11_display_utf8_to_compound_text*(display: gdk2.PDisplay,
     dynlib: lib, importc: "gdk_x11_display_utf8_to_compound_text".}
 proc x11_free_compound_text*(ctext: PPguchar) {.cdecl,
     dynlib: lib, importc: "gdk_x11_free_compound_text".}
-proc window_get_display*(win: gdk2.PWindow): gdk2.PDisplay{.cdecl, dynlib: lib,
-    importc: "gdk_window_get_display".}
 
-proc TFILTER_CALLBACK*(f: pointer): TFilterFunc =
-  result = cast[TFilterFunc](f)
-proc DISPLAY_XDISPLAY*(display: gdk2.PDisplay): xlib.PDisplay =
-  result = x11_display_get_xdisplay(display)
-proc WINDOW_XDISPLAY*(win: gdk2.PWindow): xlib.PDisplay  =
-  result = DISPLAY_XDISPLAY(window_get_display(win))
-proc DRAWABLE_XID*(win: gdk2.PWindow): x.TXID =
-  result = x11_drawable_get_xid(cast[gdk2.PDrawable](win))
-
-proc keymap_get_default* ():PKeyMap{.cdecl, dynlib: lib,
-    importc: "gdk_keymap_get_default".}
-proc keymap_have_bidi_layouts* (keymap: PKeyMap):gboolean{.cdecl, dynlib: lib,
-    importc: "gdk_keymap_have_bidi_layouts".}
-proc window_add_filter* (window: gdk2.PWindow, function: TFilterFunc,data: gpointer): gboolean{.cdecl, dynlib: lib,
-    importc: "gdk_window_add_filter".}
-proc keymap_translate_keyboard_state* (keymap: gdk2.PKeyMap, hardware_keycode: cuint,
-      state: gdk2.TModifierType, group: gint, keyval: Pguint, effective_group: Pgint,
-      level: Pgint,consumed_modifiers: gdk2.PModifierType): gboolean{.cdecl, dynlib: lib,
-    importc: "gdk_keymap_translate_keyboard_state".}
-proc keymap_add_virtual_modifiers* (keymap: gdk2.PKeyMap, state: gdk2.PModifierType){.cdecl, dynlib: lib,
-    importc: "gdk_keymap_add_virtual_modifiers".}
-proc keymap_map_virtual_modifiers* (keymap: gdk2.PKeyMap, state: gdk2.PModifierType){.cdecl, dynlib: lib,
-    importc: "gdk_keymap_map_virtual_modifiers".}
-proc keymap_get_entries_for_keyval* (keymap: PKeymap, keyval: guint,
-    s: ptr array[20,PKeymapKey], n_keys: Pgint): gboolean{.cdecl, dynlib: lib,
-    importc: "gdk_keymap_get_entries_for_keyval".}
+include gdk2ext

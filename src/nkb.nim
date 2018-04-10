@@ -277,13 +277,13 @@ else:
       
       when defined(Threads):
         nkbLock.withRLock:
-          for i in 0..allBinds.high-1:
+          for i in 0..allBinds.high:
             if allBinds[i].keyval == keyval and nkb_modifiers_equal(allBinds[i].modifiers, modifiers):
               allBinds[i].handler(allBinds[i].keystring, allBinds[i].user_data)
               if not allowMultipleCBs:
                 break
       else:
-        for i in 0..allBinds.high-1:
+        for i in 0..allBinds.high:
           if allBinds[i].keyval == keyval and nkb_modifiers_equal(allBinds[i].modifiers, modifiers):
             allBinds[i].handler(allBinds[i].keystring, allBinds[i].user_data)
             if not allowMultipleCBs:
@@ -302,15 +302,15 @@ when defined(Threads):
   
   proc nkb_keymap_changed(map: PKeyMap) =
     nkbLock.withRLock:
-      for i in 0..allBinds.high-1:
+      for i in 0..allBinds.high:
         discard nkb_ungrab_key(addr allBinds[i])
-      for i in 0..allBinds.high-1:
+      for i in 0..allBinds.high:
         discard nkb_grab_key(addr allBinds[i])
 else:
   proc nkb_keymap_changed(map: PKeyMap) =
-    for i in 0..allBinds.high-1:
+    for i in 0..allBinds.high:
       discard nkb_ungrab_key(addr allBinds[i])
-    for i in 0..allBinds.high-1:
+    for i in 0..allBinds.high:
       discard nkb_grab_key(addr allBinds[i])
 
 
@@ -397,7 +397,7 @@ proc nkb_bind*(keystring: cstring, handler: PKeybindHandle,
 when defined(Threads):
   proc nkb_unbind_all*() =
     nkbLock.withRLock:
-      for i in 0..allBinds.high-1:
+      for i in 0..allBinds.high:
         when defined(Windows):
           discard UnRegisterHotKey(nkbWindow, allBinds[i].uid)
         else:
@@ -407,7 +407,7 @@ when defined(Threads):
 
   proc nkb_unbind*(keystring: cstring, handler: PKeybindHandle) =
     nkbLock.withRLock:
-      for i in 0..allBinds.high-1:
+      for i in 0..allBinds.high:
         if keystring == allBinds[i].keystring and handler == allBinds[i].handler:
           when defined(Windows):
             discard UnRegisterHotKey(nkbWindow, allBinds[i].uid)
@@ -416,7 +416,7 @@ when defined(Threads):
           allBinds.del(i)
 else:
   proc nkb_unbind_all*() =
-    for i in 0..allBinds.high-1:
+    for i in 0..allBinds.high:
       when defined(Windows):
         discard UnRegisterHotKey(nkbWindow, allBinds[i].uid)
       else:
@@ -425,7 +425,7 @@ else:
   
   
   proc nkb_unbind*(keystring: cstring, handler: PKeybindHandle) =
-    for i in 0..allBinds.high-1:
+    for i in 0..allBinds.high:
       if keystring == allBinds[i].keystring and handler == allBinds[i].handler:
         when defined(Windows):
           discard UnRegisterHotKey(nkbWindow, allBinds[i].uid)
