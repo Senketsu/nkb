@@ -4,7 +4,7 @@ when defined(Threads):
   import rlocks
 
 when defined(Windows):
-  import oldwinapi
+  import oldwinapi/windows
 else:
   import glib2, gdk2, gtk2
   export nim_init, main
@@ -13,6 +13,8 @@ else:
 
 
 when defined(Windows):
+  const 
+    NULL: HANDLE = 0
   type
     PKeybindHandle = (proc (keystring: cstring , user_data: pointer))
     PKeyLibBinding = ptr TKeyLibBinding
@@ -20,11 +22,12 @@ when defined(Windows):
       handler*: PKeybindHandle
       user_data*: pointer
       keystring*: cstring
-      uid*: cuint
+      uid*: cint
       keyval*: cint
       modifiers*: cint
 
-  var nkbWindow: HWND
+  # Exporting in case I want to listen to events & for test file
+  var nkbWindow*: HWND
 
 else:
   const
@@ -33,14 +36,13 @@ else:
     USE_ONE_GROUP = 0
 
   type
-
     PKeybindHandle = (proc (keystring: cstring , user_data: pointer))
     PKeyLibBinding = ptr TKeyLibBinding
     TKeyLibBinding = object
       handler*: PKeybindHandle
       user_data*: pointer
       keystring*: cstring
-      uid*: cuint
+      uid*: cint
       keyval*: guint
       modifiers*: gdk2.TModifierType
 
@@ -54,12 +56,9 @@ when defined(Threads):
   var
     nkbLock: RLock
     allBinds {.guard: nkbLock, threadvar.}: seq[TKeyLibBinding]
-    allowMultipleCBs: bool = true
-  
 else:
   var
     allBinds: seq[TKeyLibBinding]
-    allowMultipleCBs: bool = true
     
 
 
@@ -71,12 +70,12 @@ when defined(Windows):
       when defined(Threads):
         nkbLock.withRLock:
           for keyBind in allBinds:
-            if keyBind.uID == cuit(wParam):
+            if keyBind.uID == (wParam):
               keyBind.handler(keyBind.keystring, keyBind.userData)
               break
       else:
         for keyBind in allBinds:
-          if keyBind.uID == cuit(wParam):
+          if keyBind.uID == (wParam):
             keyBind.handler(keyBind.keystring, keyBind.userData)
             break
     else:
@@ -87,7 +86,6 @@ when defined(Windows):
     var
       winClass: WNDCLASSEX
       nkbHWND: HWND
-      msg: MSG
     result = NULL
     let hInstance = GetModuleHandle(nil)
 
@@ -100,13 +98,14 @@ when defined(Windows):
     winClass.hbrBackground = COLOR_WINDOW+1
     winClass.lpszMenuName = nil
     winClass.lpszClassName = "nkb_class"
+    let winName: LPCSTR = "[nkb window]"
 
     if RegisterClassEx(addr(winClass)) == 0:
       let err = GetLastError()
       stderr.writeLine("[nkb]  Windows class registration failed\n\t'$1'" % [$err])
       return
-    nkbHWND = createWindowEx(0, winClass.lpszClassName, "[nkb window]",
-        WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, 1, 1, NULL, NULL, hInstance, nil)
+    nkbHWND = CreateWindowEx(0, winClass.lpszClassName, winName,
+        WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, 1, 1, 0, 0, NULL, hInstance, nil)
     if nkbHWND == NULL:
       let err = GetLastError()
       stderr.writeLine("[nkb]  Failed to setup subwindow\n\t'$1'" % [$err])
@@ -280,14 +279,12 @@ else:
           for i in 0..allBinds.high:
             if allBinds[i].keyval == keyval and nkb_modifiers_equal(allBinds[i].modifiers, modifiers):
               allBinds[i].handler(allBinds[i].keystring, allBinds[i].user_data)
-              if not allowMultipleCBs:
-                break
+              break
       else:
         for i in 0..allBinds.high:
           if allBinds[i].keyval == keyval and nkb_modifiers_equal(allBinds[i].modifiers, modifiers):
             allBinds[i].handler(allBinds[i].keystring, allBinds[i].user_data)
-            if not allowMultipleCBs:
-              break
+            break
 
       isProcessingEvent = false
     of x.KeyRelease:
@@ -296,23 +293,27 @@ else:
       discard
     result = FILTER_CONTINUE
 
-when defined(Threads):
-  proc nkb_deinit_lock*() =
-    deinitRLock(nkbLock)
-  
-  proc nkb_keymap_changed() =
-    nkbLock.withRLock:
+  when defined(Threads):
+    proc nkb_keymap_changed() =
+      nkbLock.withRLock:
+        for i in 0..allBinds.high:
+          discard nkb_ungrab_key(addr allBinds[i])
+        for i in 0..allBinds.high:
+          discard nkb_grab_key(addr allBinds[i])
+  else:
+    proc nkb_keymap_changed() =
       for i in 0..allBinds.high:
         discard nkb_ungrab_key(addr allBinds[i])
       for i in 0..allBinds.high:
         discard nkb_grab_key(addr allBinds[i])
-else:
-  proc nkb_keymap_changed() =
-    for i in 0..allBinds.high:
-      discard nkb_ungrab_key(addr allBinds[i])
-    for i in 0..allBinds.high:
-      discard nkb_grab_key(addr allBinds[i])
 
+  proc nkb_set_use_cooked*(use: bool) =
+    ## Set wether to use cooked accelerator or not. Disabled by default.
+    useXkbExtension = use and detected_xkb_extension
+
+when defined(Threads):
+  proc nkb_deinit_lock*() =
+    deinitRLock(nkbLock)
 
 proc nkb_init*() =
   when defined(Threads):
@@ -338,7 +339,7 @@ proc nkb_init*() =
 
 
 proc nkb_parse_modmask(keystring: cstring): tuple[mask: cuint, key: cuint] =
-  let noRepeatMod = 0x4000
+  # noRepeatMod = 0x4000
   let splitKS = ($keystring).split('>')
   var
     modMask: cuint = 0
@@ -363,7 +364,7 @@ proc nkb_parse_modmask(keystring: cstring): tuple[mask: cuint, key: cuint] =
 
 
 proc nkb_bind*(keystring: cstring, handler: PKeybindHandle,
-                user_data: pointer, uID: cuint = 0): bool =
+                user_data: pointer, uID: cint = 0): bool =
   ## Proc to bind a function to a hotkey
   ## Keystring must valid gtk accel string e.g <CTRL>i
   ## Handler is a proc pointer of PKeybindHandle type
@@ -379,10 +380,10 @@ proc nkb_bind*(keystring: cstring, handler: PKeybindHandle,
   if uID != 0:
     binding.uid = uID
   else:
-    binding.uid = (parMM.mask * cuint(parMM.key)*17)
+    binding.uid = cint(parMM.mask * (parMM.key)*17)
 
   when defined(Windows):
-    result = nkbWindow.RegisterHotkey((binding.uid), parMM.mask, parMM.key)
+    result = bool(nkbWindow.RegisterHotkey((binding.uid), parMM.mask, parMM.key))
   else:
     result = nkb_grab_key(addr binding)
   if result:
@@ -433,13 +434,3 @@ else:
           discard nkb_ungrab_key(addr allBinds[i])
         allBinds.del(i)
 
-
-proc nkb_set_use_cooked*(use: bool) =
-  ## Set wether to use cooked accelerator or not. Disabled by default.
-  useXkbExtension = use and detected_xkb_extension
-
-proc nkb_set_multi_call*(use: bool) =
-  ## Whether to allow registering multiple callbacks on the same key combination
-  ## When false, only first registered callback will be called
-  ## Default: ON
-  allowMultipleCBs = use

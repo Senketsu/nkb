@@ -16,13 +16,9 @@ Use compiler option -d:threads along with --threads:on.
 `nkb_init()`  
   Initializes the nkb library , **MUST be called before any other library calls**.
 
-`nkb_set_multi_call (bool)`  
-  Whether to allow registering multiple callbacks on the same key combination  
-  When false, only first registered callback will be called  
-  Default: ON  
 
 `nkb_set_use_cooked (bool)`  
-  Set wether to use cooked accelerators.  
+  Set wether to use cooked accelerators. GTK/linux only  
   Default: OFF  
 
 `nkb_bind(keystring: cstring, handler: PKeybindHandle, user_data: pointer, uID: cuint): bool`  

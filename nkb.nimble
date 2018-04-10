@@ -1,5 +1,5 @@
 # Package
-version = "0.2.2"
+version = "0.2.3"
 author = "Senketsu"
 description = "A keybinding module for Nim."
 license = "MIT"
